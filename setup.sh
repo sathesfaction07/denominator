@@ -19,9 +19,9 @@ if [ ! -d .venv ]; then
     note "created .venv"
 fi
 .venv/bin/pip install -q -e ".[dev]"
-note "installed multi-source-agg and its dev extras"
+note "installed denominator and its dev extras"
 PY=.venv/bin/python
-CLI=.venv/bin/multi-source-agg
+CLI=.venv/bin/denominator
 
 banner "2. Corpus"
 $PY data/generate.py
@@ -82,8 +82,8 @@ $CLI compare-policies
 banner "FINDING 7 -- the union depends on the identity key"
 $CLI identity | tail -8
 
-banner "The normalisation ceiling (DocConsolidator's finding, in a new domain)"
-$CLI normalize | grep -E "nowhere to go|DocConsolidator|exactly one source" || true
+banner "The normalisation ceiling (Shoehorn's finding, in a new domain)"
+$CLI normalize | grep -E "nowhere to go|Shoehorn|exactly one source" || true
 
 banner "What the tool says about itself"
 $CLI doctor
@@ -101,11 +101,11 @@ fi
 banner "Done"
 cat <<'EOF'
   Try these:
-    multi-source-agg paging                     every scheme against every mutation
-    multi-source-agg compare-schemes            offset against keyset
-    multi-source-agg compare-policies           one dataset, every conflict policy
-    multi-source-agg identity                   one set of rows, every identity scheme
-    multi-source-agg explain alpha              a source that lost a row unrepairably
-    multi-source-agg explain zeta               a source whose count means nothing
-    multi-source-agg report -o /tmp/out
+    denominator paging                     every scheme against every mutation
+    denominator compare-schemes            offset against keyset
+    denominator compare-policies           one dataset, every conflict policy
+    denominator identity                   one set of rows, every identity scheme
+    denominator explain alpha              a source that lost a row unrepairably
+    denominator explain zeta               a source whose count means nothing
+    denominator report -o /tmp/out
 EOF

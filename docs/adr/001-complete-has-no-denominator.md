@@ -13,7 +13,7 @@ how anyone would know whether the result was complete.
 You can count what you received. You cannot count what exists. Every route to the denominator turns
 out to be another claim from the thing being audited:
 
-- **Ask the source for a total.** MultiExtract already established this much in a different domain,
+- **Ask the source for a total.** Headcount already established this much in a different domain,
   with its `declared_total` labelled "what the SOURCE claims". Nothing new here.
 - **Compare the total to the rows delivered.** Agreement is *weak* evidence, because both numbers
   come from the same source — a source that undercounts itself produces exactly that agreement.

@@ -302,7 +302,7 @@ jobs:
           assert result["dropped_fields"] == ["supplier_note", "tax_band", "warehouse_region"]
           assert len(result["dropped_by_source"]) == 3
           summary = ceiling(agg.parsed).summary()
-          assert "DocConsolidator" in summary, "credit the finding, do not re-pitch it"
+          assert "Shoehorn" in summary, "credit the finding, do not re-pitch it"
           only_one = ceiling(agg.parsed).fields_only_one_source_offers
           assert set(result["dropped_fields"]) <= set(only_one)
           print(f"  identity counts {counts}; dropped {result['dropped_fields']}")
@@ -310,15 +310,15 @@ jobs:
 
       - name: check gates on what a source owner can fix, not on the world
         run: |
-          ! multi-source-agg check
-          multi-source-agg check | grep -q 'Fixable at the source'
-          multi-source-agg check | grep -q 'offset paging over a collection that changed mid-read'
-          multi-source-agg check | grep -q 'declared 4 records and delivered 3'
-          multi-source-agg check | grep -q 'Reported and NOT failed on'
-          multi-source-agg check | grep -q 'UNKNOWN number of records'
-          multi-source-agg check | grep -q 'Nobody can fix a source being down'
-          multi-source-agg check | grep -q 'paged by key and still missed a row'
-          multi-source-agg check | grep -q 'FAIL on'
+          ! denominator check
+          denominator check | grep -q 'Fixable at the source'
+          denominator check | grep -q 'offset paging over a collection that changed mid-read'
+          denominator check | grep -q 'declared 4 records and delivered 3'
+          denominator check | grep -q 'Reported and NOT failed on'
+          denominator check | grep -q 'UNKNOWN number of records'
+          denominator check | grep -q 'Nobody can fix a source being down'
+          denominator check | grep -q 'paged by key and still missed a row'
+          denominator check | grep -q 'FAIL on'
 
           # A clean single-source manifest must PASS -- a keyset reader over an unchanging
           # collection has nothing a source owner could fix.
@@ -331,8 +331,8 @@ jobs:
                         "paging": "KEYSET", "page_size": 2, "mutation": "NONE",
                         "declared_total": 1, "ask": true}]}
           JSON
-          MSA_DATA_DIR=/tmp/clean multi-source-agg check
-          MSA_DATA_DIR=/tmp/clean multi-source-agg check | grep -q 'Nothing fixable at source'
+          MSA_DATA_DIR=/tmp/clean denominator check
+          MSA_DATA_DIR=/tmp/clean denominator check | grep -q 'Nothing fixable at source'
 
           # ...and offset paging over a mutating collection alone is enough to FAIL.
           mkdir -p /tmp/shifty
@@ -343,40 +343,40 @@ jobs:
                         "paging": "OFFSET", "page_size": 2, "mutation": "DELETE_BEHIND",
                         "declared_total": 1, "ask": true}]}
           JSON
-          ! MSA_DATA_DIR=/tmp/shifty multi-source-agg check
-          MSA_DATA_DIR=/tmp/shifty multi-source-agg check \
+          ! MSA_DATA_DIR=/tmp/shifty denominator check
+          MSA_DATA_DIR=/tmp/shifty denominator check \
             | grep -q 'page by a stable key instead of by position'
           echo "a source being down does not gate; offset paging on mutable data does"
 
       - name: Every command publishes its reasoning
         run: |
-          multi-source-agg paging | grep -q 'software engineering problem. It is not'
-          multi-source-agg paging | grep -q 'deduplication repairs this failure'
-          multi-source-agg paging | grep -q 'cannot invent them'
-          multi-source-agg paging | grep -q 'snapshot that never existed'
-          multi-source-agg compare-schemes | grep -q 'decides which records exist'
-          multi-source-agg sources | grep -q 'does NOT count'
-          multi-source-agg sources | grep -q 'placeholder for a number nobody knows'
-          multi-source-agg fanout | grep -q 'FLOOR, not a total'
-          multi-source-agg fanout | grep -q 'never HOW MUCH'
-          multi-source-agg fanout | grep -q 'WEAK evidence'
-          multi-source-agg identity | grep -q 'answered by a decision about identity'
-          multi-source-agg identity | grep -q 'not a count of THINGS'
-          multi-source-agg conflict | grep -q 'could not run'
-          multi-source-agg conflict | grep -q 'declines to pick'
-          multi-source-agg compare-policies | grep -q 'The claims never changed.'
-          multi-source-agg compare-policies | grep -q 'WHICH entities you can answer about at all'
-          multi-source-agg normalize | grep -q 'DocConsolidator'
-          multi-source-agg normalize | grep -q 'offered by exactly one source'
-          multi-source-agg doctor | grep -q 'chosen, not measured'
-          multi-source-agg doctor | grep -q 'no, a floor'
-          multi-source-agg doctor | grep -q 'Never measured, by anything here'
-          multi-source-agg report | grep -q 'no deduplication can recover'
-          multi-source-agg explain alpha | grep -q 'cannot invent them'
-          multi-source-agg explain zeta | grep -q 'zero would be a claim nobody can support'
-          multi-source-agg explain beta | grep -q 'nothing should'
-          multi-source-agg explain gamma | grep -q 'one response, one instant'
-          multi-source-agg explain theta | grep -q 'nothing here is about it'
+          denominator paging | grep -q 'software engineering problem. It is not'
+          denominator paging | grep -q 'deduplication repairs this failure'
+          denominator paging | grep -q 'cannot invent them'
+          denominator paging | grep -q 'snapshot that never existed'
+          denominator compare-schemes | grep -q 'decides which records exist'
+          denominator sources | grep -q 'does NOT count'
+          denominator sources | grep -q 'placeholder for a number nobody knows'
+          denominator fanout | grep -q 'FLOOR, not a total'
+          denominator fanout | grep -q 'never HOW MUCH'
+          denominator fanout | grep -q 'WEAK evidence'
+          denominator identity | grep -q 'answered by a decision about identity'
+          denominator identity | grep -q 'not a count of THINGS'
+          denominator conflict | grep -q 'could not run'
+          denominator conflict | grep -q 'declines to pick'
+          denominator compare-policies | grep -q 'The claims never changed.'
+          denominator compare-policies | grep -q 'WHICH entities you can answer about at all'
+          denominator normalize | grep -q 'Shoehorn'
+          denominator normalize | grep -q 'offered by exactly one source'
+          denominator doctor | grep -q 'chosen, not measured'
+          denominator doctor | grep -q 'no, a floor'
+          denominator doctor | grep -q 'Never measured, by anything here'
+          denominator report | grep -q 'no deduplication can recover'
+          denominator explain alpha | grep -q 'cannot invent them'
+          denominator explain zeta | grep -q 'zero would be a claim nobody can support'
+          denominator explain beta | grep -q 'nothing should'
+          denominator explain gamma | grep -q 'one response, one instant'
+          denominator explain theta | grep -q 'nothing here is about it'
           echo "all commands explain themselves"
 
   test-windows:

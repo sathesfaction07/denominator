@@ -1,7 +1,7 @@
-# MultiSourceAgg
+# Denominator
 
 Pulling records from an XML feed, a JSON API and a scraped HTML page is a solved engineering
-problem: adapters, schema normalisation, token refresh, retries. MultiSourceAgg does all of
+problem: adapters, schema normalisation, token refresh, retries. Denominator does all of
 that, then takes on the part that is not solved: showing that nothing was missed. You can count
 what you received but not what exists, and offset paging over a collection that changes
 mid-read drops or duplicates rows without a single error.
@@ -165,7 +165,7 @@ what a scraper against an HTML source actually is), and CSV. XML parsing is genu
 the rest of this portfolio, so it is new ground here.
 
 **The finding about normalization is not new, and it would be dishonest to pitch it as such.**
-DocConsolidator already established that a common target model sets a ceiling the parser cannot
+Shoehorn already established that a common target model sets a ceiling the parser cannot
 exceed. The same holds: `Record` is the intersection of what four formats can say, so
 `warehouse_region`, `supplier_note` and `tax_band` — each offered by exactly one source — have
 nowhere to go. Every adapter reported success and the information is gone.
@@ -220,7 +220,7 @@ offset over a mutating collection **fails**.
   a source stopped part-way and the tool treats its count as a floor.
 - **The HTML adapter is regex-based and will break.** Deliberately: a source that renames a column
   silently produces records with a field nobody asked for, and that fragility belongs in the open.
-- **Normalisation loss is DocConsolidator's finding**, restated in a new domain with counts.
+- **Normalisation loss is Shoehorn's finding**, restated in a new domain with counts.
 - **Nothing here fixes anything.** Page by a stable key, emit a shared identity, say whether your
   count is a total or a floor, and expect *complete* to be a shape of words rather than a fact.
 

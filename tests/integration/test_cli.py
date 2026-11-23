@@ -223,7 +223,7 @@ class TestNormalize:
 
     def test_it_credits_docconsolidator_rather_than_claiming_the_finding(self, output):
         text = flat(output.stdout)
-        assert "same ceiling DocConsolidator found" in text
+        assert "same ceiling Shoehorn found" in text
 
     def test_it_names_the_fields_only_one_source_offers(self, output):
         assert "offered by exactly one source" in flat(output.stdout)

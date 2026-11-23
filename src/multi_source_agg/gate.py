@@ -91,7 +91,7 @@ def check(agg: Aggregate) -> Gate:
                 f"{source}: {len(fields)} offered field(s) have nowhere to go in the shared model",
                 f"{', '.join(fields)}. The adapter succeeded and the information is gone. Not a "
                 "defect in the source -- the shared model is an intersection, and this is the same "
-                "ceiling DocConsolidator found in a different domain.",
+                "ceiling Shoehorn found in a different domain.",
             )
         )
 

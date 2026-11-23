@@ -4,7 +4,7 @@ The brief's recommendation, built. XML parsing is genuinely absent from the rest
 (0 files), so this is new ground here -- but the *finding* about normalization is not new, and it is
 worth saying so plainly rather than re-pitching it:
 
-**DocConsolidator already established that a common target model sets a ceiling the parser cannot
+**Shoehorn already established that a common target model sets a ceiling the parser cannot
 exceed.** The same thing is true here. `Record` is the intersection of what four formats can say, so
 a field only one source carries has nowhere to go. What this module adds is the count: which fields
 each source offered, and which of them the shared model dropped.
@@ -189,7 +189,7 @@ class NormalisationCeiling:
         return (
             f"{len(self.all_dropped)} field(s) across {len(self.dropped_by_source)} source(s) have "
             f"nowhere to go in the shared model: {', '.join(self.all_dropped)}. Every adapter "
-            "reported success. This is the same ceiling DocConsolidator found in a different "
+            "reported success. This is the same ceiling Shoehorn found in a different "
             "domain: the target model decides what can be carried, and the parser cannot exceed it."
         )
 

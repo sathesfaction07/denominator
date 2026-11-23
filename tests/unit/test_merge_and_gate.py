@@ -130,7 +130,7 @@ class TestTheSharedModelIsACeiling:
         result = ceiling([a, b])
         assert result.all_dropped == ("tax", "warehouse")
         assert set(result.dropped_by_source) == {"a", "b"}
-        assert "DocConsolidator" in result.summary()
+        assert "Shoehorn" in result.summary()
 
     def test_no_ceiling_reached_says_so(self):
         a = from_json("a", '[{"native_id": "1", "value": "9"}]')
