@@ -1,6 +1,10 @@
 # MultiSourceAgg
 
-Aggregates records from several sources, and reports why *complete* has no denominator.
+Pulling records from an XML feed, a JSON API and a scraped HTML page is a solved engineering
+problem: adapters, schema normalisation, token refresh, retries. MultiSourceAgg does all of
+that, then takes on the part that is not solved: showing that nothing was missed. You can count
+what you received but not what exists, and offset paging over a collection that changes
+mid-read drops or duplicates rows without a single error.
 
 ```bash
 ./setup.sh
@@ -8,7 +12,9 @@ Aggregates records from several sources, and reports why *complete* has no denom
 
 ---
 
-## The brief, and the verdict this refutes
+## "Complete" Has No Denominator
+
+The requirements note this project started from said:
 
 > **Worst input:** one source returns XML, another JSON, another HTML. One is paginated, one isn't.
 > One uses auth tokens that expire mid-request.
@@ -68,7 +74,7 @@ There is no scheme under which *complete* has a value for a collection that chan
 it. The only unambiguously complete read is a single response — complete as of that one instant,
 which is the most any scheme achieves.
 
-### The retry the brief prescribes is what causes the miss
+### The prescribed retry is what causes the miss
 
 > A token expiring mid-read forces a re-authentication and a resume at offset 9. That offset was
 > computed against the collection as it was **before** the interruption. If anything was deleted

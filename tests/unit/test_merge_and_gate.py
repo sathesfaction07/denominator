@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from multi_source_agg.adapters import (
@@ -322,7 +324,7 @@ class TestSettings:
             Settings(page_size=0)
 
     def test_the_manifest_path_is_built_from_the_data_dir(self):
-        assert str(Settings(data_dir="/tmp/x").manifest_path) == "/tmp/x/manifest.json"
+        assert Settings(data_dir="/tmp/x").manifest_path == Path("/tmp/x") / "manifest.json"
 
     def test_every_setting_that_changes_the_answer_has_a_provenance_entry(self):
         names = {name for name, _, _ in provenance()}
