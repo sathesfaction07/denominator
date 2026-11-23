@@ -1,0 +1,76 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+        args: [--check]
+
+  - repo: local
+    hooks:
+      - id: corpus-still-produces-every-outcome
+        name: the corpus still plants every outcome the tests assert about
+        entry: python
+        language: system
+        pass_filenames: false
+        args:
+          - -c
+          - |
+            import sys
+            sys.path[:0] = ["src", "data"]
+            from pathlib import Path
+
+            from generate import MANIFEST_FILES
+            from multi_source_agg.aggregate import payload, run
+            from multi_source_agg.config import Settings
+            from multi_source_agg.merge import compare_policies
+            from multi_source_agg.models import ConflictPolicy, Loss, SourceOutcome
+
+            data = Path("data")
+            on_disk = {
+                p.name for p in data.iterdir()
+                if p.suffix in {".json", ".xml", ".html", ".csv"}
+            }
+            assert on_disk == set(MANIFEST_FILES), f"corpus drift: {on_disk ^ set(MANIFEST_FILES)}"
+
+            agg = run(Settings(data_dir=data))
+            result = payload(agg)
+
+            # Every source outcome and every loss mode must still occur, or the assertions
+            # elsewhere quietly become vacuous.
+            for outcome in SourceOutcome:
+                assert result["outcomes"][outcome.value] > 0, f"no {outcome} in the corpus"
+            losses = set(result["lossy_reads"].values())
+            assert losses == {
+                Loss.MISSED.value, Loss.DUPLICATED.value, Loss.UNSEEN_INSERT.value
+            }, losses
+
+            # The findings the README quotes must still be true.
+            assert result["formats"] == ["csv", "html", "json", "xml"]
+            assert result["total_is_knowable"] is False
+            assert result["union_rows"] > result["records"], "two populations, still distinct"
+            assert result["unrepairable_reads"] == ["alpha"]
+            assert result["dedup_repairable"] == ["delta"]
+            assert result["disagreeing_declared_totals"] == ["gamma"]
+            assert len(set(result["distinct_by_identity"].values())) > 1
+            assert result["dropped_fields"], "the normalisation ceiling must still be reached"
+
+            # And the sharpest one: a DIFFERENT single policy answers each contested entity.
+            operable = {}
+            for key, group in sorted(agg.contested().items()):
+                operable[key] = {
+                    r.policy for r in compare_policies(group).resolutions
+                    if r.usable and r.value is not None
+                }
+            assert operable == {
+                "K-3": {ConflictPolicy.MAJORITY},
+                "K-7": {ConflictPolicy.LATEST_WINS},
+            }, operable
+            print(f"corpus ok: {len(agg.reports)} sources, all outcomes and losses present")
+
+      - id: tests
+        name: tests
+        entry: python -m pytest -q
+        language: system
+        pass_filenames: false

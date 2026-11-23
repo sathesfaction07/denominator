@@ -1,0 +1,4 @@
+native_id,shared_key,field_name,value,confidence,tax_band
+D-1,K-1,price,42.00,0.7,standard
+D-2,K-3,price,41.00,0.4,standard
+D-3,K-8,price,13.00,0.6,reduced

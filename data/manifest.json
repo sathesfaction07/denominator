@@ -1,0 +1,105 @@
+{
+  "rows": [
+    "r01",
+    "r02",
+    "r03",
+    "r04",
+    "r05",
+    "r06",
+    "r07",
+    "r08",
+    "r09",
+    "r10"
+  ],
+  "sources": [
+    {
+      "name": "alpha",
+      "fmt": "json",
+      "file": "alpha.json",
+      "paging": "OFFSET",
+      "page_size": 3,
+      "mutation": "DELETE_BEHIND",
+      "declared_total": 4,
+      "ask": true,
+      "why": "offset paging + a deletion behind the cursor -> a row is NEVER read"
+    },
+    {
+      "name": "beta",
+      "fmt": "xml",
+      "file": "beta.xml",
+      "paging": "KEYSET",
+      "page_size": 3,
+      "mutation": "INSERT_BEHIND",
+      "declared_total": null,
+      "ask": true,
+      "why": "keyset paging + an insertion behind the cursor -> the new row is never seen"
+    },
+    {
+      "name": "gamma",
+      "fmt": "html",
+      "file": "gamma.html",
+      "paging": "NONE",
+      "page_size": 0,
+      "mutation": "NONE",
+      "declared_total": 4,
+      "ask": true,
+      "why": "one response, and a declared total that CONTRADICTS the rows delivered"
+    },
+    {
+      "name": "delta",
+      "fmt": "csv",
+      "file": "delta.csv",
+      "paging": "OFFSET",
+      "page_size": 3,
+      "mutation": "INSERT_BEHIND",
+      "declared_total": 3,
+      "ask": true,
+      "why": "offset paging + an insertion behind the cursor -> a row is read TWICE"
+    },
+    {
+      "name": "epsilon",
+      "fmt": "json",
+      "file": "epsilon.json",
+      "paging": "NONE",
+      "page_size": 0,
+      "mutation": "NONE",
+      "declared_total": 0,
+      "ask": true,
+      "why": "EMPTY: it answered, and it has nothing -- which is information"
+    },
+    {
+      "name": "zeta",
+      "fmt": "json",
+      "file": "zeta.json",
+      "paging": "NONE",
+      "page_size": 0,
+      "mutation": "NONE",
+      "declared_total": null,
+      "ask": true,
+      "why": "FAILED: the payload will not parse, so it contributes an UNKNOWN number"
+    },
+    {
+      "name": "eta",
+      "fmt": "json",
+      "file": "eta.json",
+      "paging": "OFFSET",
+      "page_size": 3,
+      "mutation": "NONE",
+      "declared_total": 10,
+      "truncate_after_page": 2,
+      "ask": true,
+      "why": "TRUNCATED: a token expires mid-read, so its count is a floor"
+    },
+    {
+      "name": "theta",
+      "fmt": "json",
+      "file": "theta.json",
+      "paging": "NONE",
+      "page_size": 0,
+      "mutation": "NONE",
+      "declared_total": null,
+      "ask": false,
+      "why": "NEVER_ASKED: declared but excluded, so nothing here is about it"
+    }
+  ]
+}

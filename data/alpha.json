@@ -1,0 +1,38 @@
+[
+  {
+    "native_id": "A-1",
+    "shared_key": "K-1",
+    "field_name": "price",
+    "value": "42.00",
+    "seen_at": "2025-06-01T11:00",
+    "confidence": 0.9,
+    "warehouse_region": "eu-west"
+  },
+  {
+    "native_id": "A-2",
+    "shared_key": "K-2",
+    "field_name": "price",
+    "value": "42.00",
+    "seen_at": "2025-06-01T12:00",
+    "confidence": 0.9,
+    "warehouse_region": "eu-west"
+  },
+  {
+    "native_id": "A-3",
+    "shared_key": "K-3",
+    "field_name": "price",
+    "value": "41.00",
+    "seen_at": "2025-06-01T13:00",
+    "confidence": 0.9,
+    "warehouse_region": "eu-west"
+  },
+  {
+    "native_id": "A-4",
+    "shared_key": "K-4",
+    "field_name": "price",
+    "value": "42.00",
+    "seen_at": "2025-06-01T14:00",
+    "confidence": 0.9,
+    "warehouse_region": "eu-west"
+  }
+]

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<records>
+  <record native_id="B-1">
+    <shared_key>K-1</shared_key>
+    <field_name>price</field_name>
+    <value>42.00</value>
+    <seen_at>2025-06-01T14:00</seen_at>
+  </record>
+  <record native_id="B-2">
+    <shared_key>K-9</shared_key>
+    <field_name>price</field_name>
+    <value>17.50</value>
+    <seen_at>2025-06-01T15:00</seen_at>
+  </record>
+  <record native_id="B-3">
+    <shared_key>K-3</shared_key>
+    <field_name>price</field_name>
+    <value>41.50</value>
+    <seen_at>2025-06-01T16:00</seen_at>
+    <supplier_note>discontinued</supplier_note>
+  </record>
+</records>

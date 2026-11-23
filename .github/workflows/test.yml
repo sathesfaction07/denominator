@@ -1,0 +1,380 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    env:
+      # Rich wraps to the terminal width and a CI runner reports 80. The greps below assert on
+      # whole sentences, so give it room rather than matching fragments.
+      COLUMNS: "200"
+      MSA_DATA_DIR: data
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests data
+
+      - name: The corpus is reproducible, and the generator owns its directory
+        run: |
+          # A leftover payload from an older convention parses cleanly and quietly changes
+          # every count. The generator prunes anything it did not write.
+          printf '[{"native_id": "X-1", "value": "0"}]' > data/stale_leftover.json
+          python data/generate.py
+          test ! -f data/stale_leftover.json
+          test "$(ls data/*.json data/*.xml data/*.html data/*.csv | wc -l)" -eq 9
+
+      - name: Test
+        run: pytest -q --cov=multi_source_agg --cov-report=term-missing
+
+      - name: Offset paging over changing data fails two OPPOSITE ways
+        run: |
+          python - <<'PY'
+          from multi_source_agg.models import Loss, Mutation, Paging
+          from multi_source_agg.paging import dedup_verdict, read
+
+          rows = [f"r{i:02d}" for i in range(1, 11)]
+
+          # THE FINDING. Both pages are individually well-formed in every case below.
+          clean = read("s", rows, Paging.OFFSET, 3, Mutation.NONE)
+          assert (clean.rows_read, clean.loss) == (10, Loss.CLEAN)
+
+          # An insert BEFORE the cursor shifts everything down -> a row is read TWICE.
+          dup = read("s", rows, Paging.OFFSET, 3, Mutation.INSERT_BEHIND)
+          assert dup.rows_read == 11 and dup.distinct_read == 10
+          assert dup.duplicated == ("r03",) and dup.missed == ()
+          assert dup.loss is Loss.DUPLICATED
+          # ...and it ALSO never sees the row that was inserted.
+          assert dup.unseen_inserts == ("r00",)
+
+          # A delete BEFORE the cursor shifts everything up -> a row is NEVER read.
+          miss = read("s", rows, Paging.OFFSET, 3, Mutation.DELETE_BEHIND)
+          assert miss.rows_read == 9 and miss.distinct_read == 9
+          assert miss.missed == ("r04",) and miss.duplicated == ()
+          assert miss.loss is Loss.MISSED
+
+          # Opposite directions from one mechanism.
+          assert dup.rows_read > 10 > miss.rows_read
+
+          # An insert AHEAD of the cursor is simply seen.
+          assert read("s", rows, Paging.OFFSET, 3, Mutation.INSERT_AHEAD).loss is Loss.CLEAN
+
+          # The page size decides WHICH row is lost, which is why it is a setting.
+          assert read("s", rows, Paging.OFFSET, 4, Mutation.DELETE_BEHIND).missed == ("r05",)
+          print(f"  insert -> duped {dup.duplicated}; delete -> missed {miss.missed}")
+          PY
+
+      - name: Deduplication repairs one failure and is powerless against the other
+        run: |
+          python - <<'PY'
+          from multi_source_agg.models import Loss, Mutation, Paging
+          from multi_source_agg.paging import dedup_verdict, read
+
+          rows = [f"r{i:02d}" for i in range(1, 11)]
+          dup = read("s", rows, Paging.OFFSET, 3, Mutation.INSERT_BEHIND)
+          miss = read("s", rows, Paging.OFFSET, 3, Mutation.DELETE_BEHIND)
+
+          # Dedup recovers the CORRECT answer after a duplicate...
+          assert dup.dedup_repairs_it is True
+          assert dup.distinct_read == 10, "which is the true number of original rows"
+          assert "repairs this failure completely" in dedup_verdict(dup)
+
+          # ...and cannot invent a row that was never read.
+          assert miss.dedup_repairs_it is False
+          assert miss.distinct_read == 9
+          assert "cannot invent them" in dedup_verdict(miss)
+          assert "looks exactly as plausible as a correct one" in dedup_verdict(miss)
+
+          # THE DANGEROUS ASYMMETRY: MISSED must outrank DUPLICATED, because the repairable
+          # failure is the visible one.
+          from multi_source_agg.models import ReadResult
+          both = ReadResult(source="s", paging=Paging.OFFSET, rows_read=3, distinct_read=2,
+                            stable_rows=3, missed=("r09",), duplicated=("r01",))
+          assert both.loss is Loss.MISSED
+          print("  dedup fixes the visible failure and leaves the invisible one")
+          PY
+
+      - name: Keyset paging is strictly better and still not complete
+        run: |
+          python - <<'PY'
+          from multi_source_agg.models import Loss, Mutation, Paging
+          from multi_source_agg.paging import compare_schemes, dedup_verdict, read
+
+          rows = [f"r{i:02d}" for i in range(1, 11)]
+
+          # It survives the deletion that offset paging does not.
+          assert read("s", rows, Paging.KEYSET, 3, Mutation.DELETE_BEHIND).loss is Loss.CLEAN
+          assert read("s", rows, Paging.OFFSET, 3, Mutation.DELETE_BEHIND).loss is Loss.MISSED
+
+          # It never duplicates, under any mutation.
+          for mutation in Mutation:
+            assert read("s", rows, Paging.KEYSET, 3, mutation).duplicated == ()
+
+          # AND a row inserted BEHIND the cursor is never seen, because the cursor has already
+          # passed where it sorts. Not a defect -- there was no instant to catch it.
+          behind = read("s", rows, Paging.KEYSET, 3, Mutation.INSERT_BEHIND)
+          assert behind.unseen_inserts == ("r00",)
+          assert behind.missed == (), "no pre-existing row was lost"
+          assert behind.loss is Loss.UNSEEN_INSERT
+          assert "Nothing repairs this, and nothing should" in dedup_verdict(behind)
+
+          # The only unambiguously complete scheme is one response.
+          for mutation in Mutation:
+            assert read("s", rows, Paging.NONE, 3, mutation).loss is Loss.CLEAN
+
+          # And the schemes DISAGREE about what was lost, so the scheme is not a detail.
+          for mutation in (Mutation.INSERT_BEHIND, Mutation.DELETE_BEHIND):
+            comparison = compare_schemes(rows, mutation)
+            assert comparison.schemes_agree is False
+            assert "decides which records exist" in comparison.summary()
+          print("  keyset never duplicates, and still never sees r00")
+          PY
+
+      - name: Completeness has no denominator, and retry is the cause not the cure
+        run: |
+          python - <<'PY'
+          from multi_source_agg.aggregate import payload, run
+          from multi_source_agg.config import Settings
+          from multi_source_agg.fanout import DeclaredTotalCheck, coverage, empty_is_not_failure
+          from multi_source_agg.models import SourceOutcome, SourceReport
+          from multi_source_agg.paging import (
+              completeness_has_no_denominator, why_retry_makes_it_worse,
+          )
+
+          note = completeness_has_no_denominator()
+          assert "cannot count what exists" in note
+          assert "snapshot that never existed" in note
+
+          retry = why_retry_makes_it_worse(9)
+          assert "not a repair" in retry and "gone stale" in retry
+
+          # A FLOOR is never printed as a total.
+          result = payload(run(Settings(data_dir="data")))
+          assert result["total_is_knowable"] is False
+          assert result["records"] == 13
+          assert result["unknown_contributors"] == ["zeta", "eta", "theta"]
+
+          agg = run(Settings(data_dir="data"))
+          headline = agg.headline()
+          assert "FLOOR, not a total" in headline
+          assert "at least 0, at most unbounded" in headline
+
+          # TWO POPULATIONS, named. The coverage count excludes a TRUNCATED source's count;
+          # the union includes its records, because they are real.
+          assert result["union_rows"] == 20 > result["records"]
+          assert "20 record(s) reached the union" in headline
+          assert "a TRUNCATED source's records are real" in headline
+
+          # A silent source cannot carry a count at all.
+          try:
+              SourceReport(source="x", outcome=SourceOutcome.FAILED, records=5)
+              raise AssertionError("that should not have validated")
+          except Exception:
+              pass
+          assert "opposite things" in empty_is_not_failure()
+
+          # A declared total that AGREES is weak evidence; one that DISAGREES is strong.
+          assert "WEAK evidence" in DeclaredTotalCheck("a", 10, 10).verdict()
+          assert "STRONG evidence" in DeclaredTotalCheck("a", 10, 9).verdict()
+          assert result["disagreeing_declared_totals"] == ["gamma"]
+
+          # Everyone answering makes it a total, and even then only per-source instants.
+          clean = coverage([
+              SourceReport(source="a", outcome=SourceOutcome.ANSWERED, records=3),
+              SourceReport(source="b", outcome=SourceOutcome.EMPTY, records=0),
+          ])
+          assert clean.total_is_knowable is True
+          assert "not as of any single instant" in clean.headline()
+          print(f"  {result['records']} is a floor; {result['union_rows']} rows reached the union")
+          PY
+
+      - name: The conflict policy decides WHICH entities are answerable
+        run: |
+          python - <<'PY'
+          from multi_source_agg.aggregate import run
+          from multi_source_agg.config import Settings
+          from multi_source_agg.merge import compare_policies, resolve
+          from multi_source_agg.models import ConflictPolicy, Record
+
+          def claim(source, value, **kw):
+              return Record(source=source, native_id=f"{source}-1", shared_key="K-1",
+                            field_name="price", value=value, **kw)
+
+          # The three answer-producing policies split on one set of claims.
+          claims = [
+              claim("alpha", "42.00", seen_at="2025-06-01T10:00", confidence=0.9),
+              claim("beta", "41.50", seen_at="2025-06-01T14:00", confidence=0.5),
+              claim("gamma", "42.00", seen_at="2025-06-01T09:00", confidence=0.7),
+          ]
+          assert resolve(claims, ConflictPolicy.LATEST_WINS).value == "41.50"
+          assert resolve(claims, ConflictPolicy.HIGHEST_CONFIDENCE).value == "42.00"
+          assert resolve(claims, ConflictPolicy.MAJORITY).value == "42.00"
+          assert compare_policies(claims).distinct_answers == 2
+
+          # A policy REFUSES rather than falling back to first-one-wins.
+          untimed = [claim("a", "1", seen_at="2025-01-01"), claim("b", "2")]
+          assert resolve(untimed, ConflictPolicy.LATEST_WINS).usable is False
+          assert resolve(untimed, ConflictPolicy.HIGHEST_CONFIDENCE).usable is False
+
+          # ...and "cannot run" is kept SEPARATE from "declines to pick".
+          declined = resolve(claims, ConflictPolicy.FLAG_FOR_REVIEW)
+          assert declined.usable is True and declined.value is None
+          assert "does not invent a winner" in declined.detail
+
+          # THE DEFECT THIS GUARDS: comparing values alone reported agreement on claims where
+          # only ONE policy could run, so the policy decided everything invisibly.
+          one_operable = [
+              claim("a", "1"),
+              claim("b", "1", seen_at="2025-01-02", confidence=0.5),
+              claim("c", "2", seen_at="2025-01-03", confidence=0.6),
+          ]
+          comparison = compare_policies(one_operable)
+          assert comparison.distinct_answers == 1
+          assert comparison.policies_agree is False
+          assert set(comparison.inoperable) == {
+              ConflictPolicy.LATEST_WINS, ConflictPolicy.HIGHEST_CONFIDENCE
+          }
+          assert "Only 1 policy could produce an answer at all" in comparison.summary()
+
+          # THE SHARPEST RESULT: on the corpus, exactly one policy runs per contested entity,
+          # and it is a DIFFERENT policy each time.
+          agg = run(Settings(data_dir="data"))
+          operable = {}
+          for key, group in sorted(agg.contested().items()):
+              operable[key] = {
+                  r.policy for r in compare_policies(group).resolutions
+                  if r.usable and r.value is not None
+              }
+          assert operable == {
+              "K-3": {ConflictPolicy.MAJORITY},
+              "K-7": {ConflictPolicy.LATEST_WINS},
+          }, operable
+          print("  K-3 is answerable only by MAJORITY; K-7 only by LATEST_WINS")
+          PY
+
+      - name: The union depends on the identity key, and the adapters hit a ceiling
+        run: |
+          python - <<'PY'
+          from multi_source_agg.adapters import ceiling, from_html, from_xml, parse
+          from multi_source_agg.aggregate import payload, run
+          from multi_source_agg.config import Settings
+          from multi_source_agg.merge import compare_identities
+          from multi_source_agg.models import Identity
+
+          result = payload(run(Settings(data_dir="data")))
+
+          # Same rows, three counts. Identity is a decision.
+          counts = result["distinct_by_identity"]
+          assert counts == {"NATIVE_ID": 20, "SHARED_KEY": 9, "NONE": 20}, counts
+          agg = run(Settings(data_dir="data"))
+          comparison = compare_identities(agg.records)
+          assert comparison.schemes_agree is False
+          assert "answered by a decision about identity" in comparison.summary()
+
+          # All four formats parse, including XML, which is absent elsewhere in the portfolio.
+          assert result["formats"] == ["csv", "html", "json", "xml"]
+          assert from_xml("a", '<records><record native_id="1"><value>9</value></record></records>'
+                          ).records[0].value == "9"
+          assert from_html("a", "<p>no table</p>").records == ()
+          try:
+              parse("a", "yaml", "x: 1")
+              raise AssertionError("that should not have parsed")
+          except ValueError:
+              pass
+
+          # The shared model is an INTERSECTION, so a field only one source offers is dropped.
+          assert result["dropped_fields"] == ["supplier_note", "tax_band", "warehouse_region"]
+          assert len(result["dropped_by_source"]) == 3
+          summary = ceiling(agg.parsed).summary()
+          assert "DocConsolidator" in summary, "credit the finding, do not re-pitch it"
+          only_one = ceiling(agg.parsed).fields_only_one_source_offers
+          assert set(result["dropped_fields"]) <= set(only_one)
+          print(f"  identity counts {counts}; dropped {result['dropped_fields']}")
+          PY
+
+      - name: check gates on what a source owner can fix, not on the world
+        run: |
+          ! multi-source-agg check
+          multi-source-agg check | grep -q 'Fixable at the source'
+          multi-source-agg check | grep -q 'offset paging over a collection that changed mid-read'
+          multi-source-agg check | grep -q 'declared 4 records and delivered 3'
+          multi-source-agg check | grep -q 'Reported and NOT failed on'
+          multi-source-agg check | grep -q 'UNKNOWN number of records'
+          multi-source-agg check | grep -q 'Nobody can fix a source being down'
+          multi-source-agg check | grep -q 'paged by key and still missed a row'
+          multi-source-agg check | grep -q 'FAIL on'
+
+          # A clean single-source manifest must PASS -- a keyset reader over an unchanging
+          # collection has nothing a source owner could fix.
+          mkdir -p /tmp/clean
+          printf '[{"native_id":"1","shared_key":"K-1","field_name":"f","value":"v"}]' \
+            > /tmp/clean/one.json
+          cat > /tmp/clean/manifest.json <<'JSON'
+          {"rows": ["r01", "r02"],
+           "sources": [{"name": "one", "fmt": "json", "file": "one.json",
+                        "paging": "KEYSET", "page_size": 2, "mutation": "NONE",
+                        "declared_total": 1, "ask": true}]}
+          JSON
+          MSA_DATA_DIR=/tmp/clean multi-source-agg check
+          MSA_DATA_DIR=/tmp/clean multi-source-agg check | grep -q 'Nothing fixable at source'
+
+          # ...and offset paging over a mutating collection alone is enough to FAIL.
+          mkdir -p /tmp/shifty
+          cp /tmp/clean/one.json /tmp/shifty/one.json
+          cat > /tmp/shifty/manifest.json <<'JSON'
+          {"rows": ["r01", "r02", "r03", "r04"],
+           "sources": [{"name": "one", "fmt": "json", "file": "one.json",
+                        "paging": "OFFSET", "page_size": 2, "mutation": "DELETE_BEHIND",
+                        "declared_total": 1, "ask": true}]}
+          JSON
+          ! MSA_DATA_DIR=/tmp/shifty multi-source-agg check
+          MSA_DATA_DIR=/tmp/shifty multi-source-agg check \
+            | grep -q 'page by a stable key instead of by position'
+          echo "a source being down does not gate; offset paging on mutable data does"
+
+      - name: Every command publishes its reasoning
+        run: |
+          multi-source-agg paging | grep -q 'software engineering problem. It is not'
+          multi-source-agg paging | grep -q 'deduplication repairs this failure'
+          multi-source-agg paging | grep -q 'cannot invent them'
+          multi-source-agg paging | grep -q 'snapshot that never existed'
+          multi-source-agg compare-schemes | grep -q 'decides which records exist'
+          multi-source-agg sources | grep -q 'does NOT count'
+          multi-source-agg sources | grep -q 'placeholder for a number nobody knows'
+          multi-source-agg fanout | grep -q 'FLOOR, not a total'
+          multi-source-agg fanout | grep -q 'never HOW MUCH'
+          multi-source-agg fanout | grep -q 'WEAK evidence'
+          multi-source-agg identity | grep -q 'answered by a decision about identity'
+          multi-source-agg identity | grep -q 'not a count of THINGS'
+          multi-source-agg conflict | grep -q 'could not run'
+          multi-source-agg conflict | grep -q 'declines to pick'
+          multi-source-agg compare-policies | grep -q 'The claims never changed.'
+          multi-source-agg compare-policies | grep -q 'WHICH entities you can answer about at all'
+          multi-source-agg normalize | grep -q 'DocConsolidator'
+          multi-source-agg normalize | grep -q 'offered by exactly one source'
+          multi-source-agg doctor | grep -q 'chosen, not measured'
+          multi-source-agg doctor | grep -q 'no, a floor'
+          multi-source-agg doctor | grep -q 'Never measured, by anything here'
+          multi-source-agg report | grep -q 'no deduplication can recover'
+          multi-source-agg explain alpha | grep -q 'cannot invent them'
+          multi-source-agg explain zeta | grep -q 'zero would be a claim nobody can support'
+          multi-source-agg explain beta | grep -q 'nothing should'
+          multi-source-agg explain gamma | grep -q 'one response, one instant'
+          multi-source-agg explain theta | grep -q 'nothing here is about it'
+          echo "all commands explain themselves"
