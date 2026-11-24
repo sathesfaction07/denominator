@@ -161,8 +161,8 @@ was chosen. So a policy whose precondition is absent reports `cannot run` rather
 ## The adapters, and the ceiling they cannot exceed
 
 Four formats, four adapters — JSON, XML (`ElementTree`), HTML (scraped with regex, because that is
-what a scraper against an HTML source actually is), and CSV. XML parsing is genuinely absent from
-the rest of this portfolio, so it is new ground here.
+what a scraper against an HTML source actually is), and CSV. None of the sibling projects parses
+XML, so it is new ground here.
 
 **The finding about normalization is not new, and it would be dishonest to pitch it as such.**
 Shoehorn already established that a common target model sets a ceiling the parser cannot

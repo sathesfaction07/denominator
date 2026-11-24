@@ -5,7 +5,7 @@
 
 ## Context
 
-The brief's accuracy concern is *complete data aggregation from all sources without missing records*,
+The project brief's accuracy concern is *complete data aggregation from all sources without missing records*,
 and its verdict is **"software engineering problem, not accuracy problem."** Building the recommended
 mechanisms — per-source adapters, schema normalization, auth refresh, retry — raised the question of
 how anyone would know whether the result was complete.
@@ -47,14 +47,14 @@ is about.**
 ## Consequences
 
 **Good.** The headline cannot mislead. On the corpus it reads "13 records … so 13 is a FLOOR, not a
-total", which is the honest form of the number the brief wanted.
+total", which is the honest form of the number the project brief wanted.
 
 **Good.** The two populations stayed separate. `coverage.records` (13) excludes a `TRUNCATED`
 source's count; `union.rows` (20) includes its records, because they are real records we hold. Both
 are right and they differ, which the headline now says explicitly — an earlier version printed them
 adjacent and implied one collapsed into the other.
 
-**Good.** It makes the brief's verdict testable rather than arguable. `check` fails a source that
+**Good.** It makes the project brief's verdict testable rather than arguable. `check` fails a source that
 pages by offset over a mutating collection, because that *is* fixable engineering; it reports and
 does not fail a source that was down, because that is not.
 

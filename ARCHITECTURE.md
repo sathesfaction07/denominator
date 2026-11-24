@@ -2,7 +2,7 @@
 
 ## The shape of the problem
 
-The brief asks for *complete data aggregation from all sources without missing records* and calls it
+The project brief asks for *complete data aggregation from all sources without missing records* and calls it
 a software engineering problem. The module layout is the argument that it is not: each stage adds an
 unknown, and no later stage removes an earlier one.
 
@@ -129,7 +129,7 @@ quietly changes every count.
 - **No real auth flow.** `TRUNCATED` is declared in the manifest. The point being made is what a
   truncated read does to a total, not how OAuth works.
 - **No concurrency.** Fan-out is sequential. A `ThreadPoolExecutor` would change the timing and none
-  of the findings, and it exists in five other projects here.
+  of the findings, and it exists in five sibling projects.
 - **No HTML parser dependency.** The regex scraper is what a scraper against an HTML source
   actually is, and its fragility is part of the argument.
 - **No pandas.** The join semantics under examination are plain Python.
