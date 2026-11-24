@@ -210,15 +210,15 @@ def main() -> None:
 
     (HERE / "manifest.json").write_text(
         json.dumps({"rows": ROWS, "sources": SOURCES}, indent=2) + "\n"
-    )
-    (HERE / "alpha.json").write_text(json.dumps(ALPHA, indent=2) + "\n")
-    (HERE / "beta.xml").write_text(BETA)
-    (HERE / "gamma.html").write_text(GAMMA)
-    (HERE / "delta.csv").write_text(DELTA)
-    (HERE / "epsilon.json").write_text(json.dumps(EPSILON) + "\n")
-    (HERE / "zeta.json").write_text(ZETA)
-    (HERE / "eta.json").write_text(json.dumps(ETA, indent=2) + "\n")
-    (HERE / "theta.json").write_text(json.dumps(THETA, indent=2) + "\n")
+, encoding="utf-8")
+    (HERE / "alpha.json").write_text(json.dumps(ALPHA, indent=2) + "\n", encoding="utf-8")
+    (HERE / "beta.xml").write_text(BETA, encoding="utf-8")
+    (HERE / "gamma.html").write_text(GAMMA, encoding="utf-8")
+    (HERE / "delta.csv").write_text(DELTA, encoding="utf-8")
+    (HERE / "epsilon.json").write_text(json.dumps(EPSILON) + "\n", encoding="utf-8")
+    (HERE / "zeta.json").write_text(ZETA, encoding="utf-8")
+    (HERE / "eta.json").write_text(json.dumps(ETA, indent=2) + "\n", encoding="utf-8")
+    (HERE / "theta.json").write_text(json.dumps(THETA, indent=2) + "\n", encoding="utf-8")
 
     print(f"wrote a manifest and {len(SOURCES)} source payloads in 4 formats")
     for s in SOURCES:

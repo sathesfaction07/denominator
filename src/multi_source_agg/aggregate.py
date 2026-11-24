@@ -131,7 +131,7 @@ def _outcome_for(parsed: Parsed, truncated: bool) -> SourceOutcome:
 
 def run(settings: Settings) -> Aggregate:
     """Ask every source in the manifest, and account for each one separately."""
-    spec = json.loads(settings.manifest_path.read_text())
+    spec = json.loads(settings.manifest_path.read_text(encoding="utf-8"))
     rows: list[str] = spec["rows"]
     result = Aggregate(identity=settings.identity, policy=settings.policy)
 
@@ -149,7 +149,7 @@ def run(settings: Settings) -> Aggregate:
             )
             continue
 
-        payload = (settings.data_dir / source["file"]).read_text()
+        payload = (settings.data_dir / source["file"]).read_text(encoding="utf-8")
         try:
             parsed = parse(name, source["fmt"], payload)
         except Exception as exc:
